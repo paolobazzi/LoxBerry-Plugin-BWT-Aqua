@@ -1,0 +1,46 @@
+<div class="wide"><TMPL_VAR BASIC.BWT_AQUA_TITLE></div>
+
+<form method="post" data-ajax="false" name="main_form" id="main_form" action="index.cgi">
+	<input type="hidden" name="save" value="save">
+	<div class="ui-field-contain">
+		<label for="DeviceIp" id="labelip"><TMPL_VAR BASIC.BWT_AQUA_IP></label>
+		<input  name="DeviceIp" type="text" class="textfield" value="<TMPL_VAR NAME=IP>" data-validation-error-msg="* Please enter IP-Adress">
+	</div>
+	<div class="ui-field-contain">
+		<label for="DeviceCode" id="labelip"><TMPL_VAR BASIC.BWT_AQUA_CODE></label>
+		<input  name="DeviceCode" type="password" class="textfield" value="<TMPL_VAR NAME=CODE>" data-validation-error-msg="* Please enter code">
+	</div>
+	<div class="ui-field-contain">
+		<label for="HTTP_Send" id="labelHttpSend"><TMPL_VAR BASIC.BWT_AQUA_HTTPSEND></label>
+		<fieldset>
+			<select  name="HTTP_Send" data-role="flipswitch">
+				<option value="0" <TMPL_VAR NAME=HTTPSENDNO>>Aus</option>
+				<option value="1" <TMPL_VAR NAME=HTTPSENDYES>>Ein</option>
+			</select>
+		<span>&nbsp;<TMPL_VAR BASIC.BWT_AQUA_HTTPSEND_HINT></span>
+		</fieldset>
+	</div>
+	<div class="ui-field-contain">
+		<label for="HTTP_Provide" id="labelHttpProvide"><TMPL_VAR BASIC.BWT_AQUA_HTTPPROVIDE></label>
+		<fieldset>
+			<select  name="HTTP_Provide" data-role="flipswitch">
+				<option value="0" <TMPL_VAR NAME=HTTPPROVIDENO>>Aus</option>
+				<option value="1" <TMPL_VAR NAME=HTTPPROVIDEYES>>Ein</option>
+			</select>
+		<span>&nbsp;<TMPL_VAR BASIC.BWT_AQUA_HTTPPROVIDE_HINT> <a href="<TMPL_VAR NAME=HTTP_SITE>" target="_blank">URL</a></span>
+		</fieldset>
+	</div>
+	
+	<TMPL_VAR MINISERVER_HTML>
+	
+	<TMPL_IF SAVED>
+		<p style="text-align:center;"><TMPL_VAR BASIC.BWT_AQUA_SAVED></p>
+	</TMPL_IF>
+
+	<p style="text-align:center;">
+		<!-- <a id="btncancel" data-role="button" data-inline="true" data-mini="true" data-icon="delete" href="./index.cgi?form=1">Abbrechen</a>  -->
+		<button type="submit" form="main_form" id="do" data-role="button" data-inline="true" data-mini="true" data-icon="check">Speichern</button>
+		<a id="test" data-icon="info" data-role="button" data-inline="true" data-mini="true" href="<TMPL_VAR NAME=TEST_SITE>" target="_blank">Testen</a>
+		<a id="button" data-icon="info" data-role="button" data-inline="true" data-mini="true" href="<TMPL_VAR NAME=LOGDATEI>" target="_blank">Logdatei</a>
+	</p>
+</form>
