@@ -117,18 +117,22 @@ my $response = $ua->request($req);
 if ($response->code == 200) {
 	LOGDEB "Login OK";
 	if ($TEST_MODE) {
-		printf "Login OK"."<br>";
+		printf "Login OK"."<br><br>";
 	}
 } else {
-	LOGDEB "Login failed. Error Code".$response->code;
+	LOGDEB "Login failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
 	if ($TEST_MODE) {
-		printf "Login failed. Error Code".$response->code."<br>";
+		printf "Login failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
+		$Data::Dumper::Pad = '<br>';
+		printf "<p style='color:red;'>";
+		printf Dumper $response;
+		printf "</p>";
 	}
 	exit 0;
 }
 
 ##### Read data
-$url = 'https://192.168.1.54/home/actualizedata';
+$url = 'https://'.$BWT_IP.'/home/actualizedata';
 $req = HTTP::Request->new('GET', $url);
 $ua = LWP::UserAgent->new();
 $ua->ssl_opts(
@@ -148,9 +152,13 @@ if ($response->code == 200) {
 		printf "Read data OK"."<br>";
 	}
 } else {
-	LOGDEB "Read data failed. Error Code".$response->code;
+	LOGDEB "Read data failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
 	if ($TEST_MODE) {
-		printf "Read data failed. Error Code".$response->code."<br>";
+		printf "Read data failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
+		$Data::Dumper::Pad = '<br>';
+		printf "<p style='color:red;'>";
+		printf Dumper $response;
+		printf "</p>";
 	}
 	exit 0;
 }
