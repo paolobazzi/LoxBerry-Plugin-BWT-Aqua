@@ -67,9 +67,10 @@ $MINISERVER = $pcfg->param('MAIN.MINISERVER');
 # Check mode
 my $cgi = CGI->new;
 $cgi->import_names('R');
-$TEST_MODE = $R::action eq "test";
-$FETCH_MODE = $R::action eq "fetch";
-$TRIGGER_MODE = $R::action eq "trigger";
+$TEST_MODE = $R::action eq "test";			# TEST Mode: Read values from BWT regenrant and print as HTML output including verbose logging (and send values to MiniServer if enabled)
+$FETCH_MODE = $R::action eq "fetch";		# FETCH Mode: Read values from BWT regenerant and print as formatted HTML output (do not send values to MiniServer)
+$TRIGGER_MODE = $R::action eq "trigger";	# TRIGGER Mode: Send action (ID & value) to BWT regenrant
+											# Parameterless Mode: Read values froM BWT regenerant (and send values to MiniServer if enabled)
 
 LOGDEB "BWT IP: ".$BWT_IP;
 LOGDEB "BWT CODE: ".$BWT_CODE;
@@ -88,15 +89,17 @@ if ($TEST_MODE) {
 }
 
 ####################################################################################
-# (2) Read BWT values
+# (3) Check for valid mode
 ####################################################################################
 
-if (!$TEST_MODE && !$FETCH_MODE && !$HTTP_SEND_ENABLE) {
-	LOGDEB "Not testing and not fetch mode and not HTTP send enable. Abort processing.";
+if (!$TEST_MODE && !$FETCH_MODE && !$TRIGGER_MODE && !$HTTP_SEND_ENABLE) {
+	LOGDEB "Not testing and not fetch and not trigger mode and not HTTP send enable. Abort processing.";
 	exit 0;
 }
 
-##### Login			
+####################################################################################
+# (4) Login to BWT regenrant
+####################################################################################
 my $url = 'http://'.$BWT_IP.'/users/login';
 my $header = ['Content-Type' => 'application/x-www-form-urlencoded'];
 my $req = HTTP::Request->new('POST', $url, $header, '_method=POST&STLoginPWField='.$BWT_CODE.'&function=save' );
@@ -133,7 +136,9 @@ if ($response->code == 200) {
 }
 
 if ($TRIGGER_MODE) {
-	##### Trigger action
+	####################################################################################
+	# (5a) Trigger action in BWT
+	####################################################################################
 	$ID = $R::id;			# BWT Action ID
 	$VALUE = $R::value; 	# BWT Action value
 	
@@ -154,9 +159,12 @@ if ($TRIGGER_MODE) {
 	} else {
 		LOGDEB "Trigger action id=".$ID.", value=".$VALUE." failed. Error Code: ".$response->code.", Message: ".$response->message;
 		print "Trigger action id=".$ID.", value=".$VALUE." failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
-	}	
+	}
+	exit 0;	
 } else {
-	##### Read data
+	####################################################################################
+	# (5b) Read data from BWT
+	####################################################################################
 	$url = 'https://'.$BWT_IP.'/home/actualizedata';
 	$req = HTTP::Request->new('GET', $url);
 	$ua = LWP::UserAgent->new();
@@ -193,8 +201,9 @@ if ($TRIGGER_MODE) {
 	}
 	
 	my $decoded_json = decode_json( $response->content );
-	my $timestamp = strftime("%d.%m.%Y %H:%M:%S", localtime(time));
-	
+	my $timestampString = strftime("%d.%m.%Y %H:%M:%S", localtime(time));
+	my $timestamp = epoch2lox();	
+ 
 	if ($TEST_MODE) {
 		print "Values:"."<br>";
 	}
@@ -205,94 +214,93 @@ if ($TRIGGER_MODE) {
 	print "flowYear=".($decoded_json->{durchflussJahr} / 10)."<br>";
 	print "regenerantRefillDays=".$decoded_json->{RegeneriemittelNachfuellenIn}."<br>";
 	print "regenerantRemainingDays=".$decoded_json->{RegeneriemittelVerbleibend}."<br>";
-	print "Timestamp=".$timestamp;
+	print "timestamp=".$timestamp."<br>";
+	print "timestampString=".$timestampString;
 	
 	if ($TEST_MODE) {
 		print "<hr>";
 	}
+	
+	####################################################################################
+	# Send values to Miniserver
+	###################################################################################
+	if ($HTTP_SEND_ENABLE && !$FETCH_MODE && !$TRIGGER_MODE) {
+		LOGDEB "Start sending values to Miniserver";
+		if ($TEST_MODE) {
+			print "Start sending values to Miniserver<br>";
+		}
+		
+		$VI_FLOW_CURRENT 				= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT");
+		$VI_FLOW_CURRENT_PERCENT 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT_PERCENT");
+		$VI_FLOW_TODAY			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_TODAY");
+		$VI_FLOW_MONTH			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_MONTH");
+		$VI_FLOW_YEAR			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_YEAR");
+		$VI_REGENERANT_REFILL_DAYS 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REFILL_DAYS");
+		$VI_REGENERANT_REFILL_REMAINING = $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REMAINING");
+		$VI_DATA_TIMESTAMP				= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_DATA_TIMESTAMP");
+		
+		# Set this variable directly before the function call to override the cache and exceptionally submit ALL values.
+		# After every function call, the function resets the value to 0.
+		### $LoxBerry::IO::mem_sendall = 1;
+		
+		my %data_to_send;
+		$data_to_send{$VI_FLOW_CURRENT} 				= $decoded_json->{aktuellerDurchfluss};
+		$data_to_send{$VI_FLOW_CURRENT_PERCENT} 		= $decoded_json->{aktuellerDurchflussProzent};
+		$data_to_send{$VI_FLOW_TODAY} 					= $decoded_json->{durchflussHeute};
+		$data_to_send{$VI_FLOW_MONTH} 					= $decoded_json->{durchflussMonat};
+		$data_to_send{$VI_FLOW_YEAR} 					= ($decoded_json->{durchflussJahr} / 10);
+		$data_to_send{$VI_REGENERANT_REFILL_DAYS} 		= $decoded_json->{RegeneriemittelNachfuellenIn};
+		$data_to_send{$VI_REGENERANT_REFILL_REMAINING} 	= $decoded_json->{RegeneriemittelVerbleibend};
+		$data_to_send{$VI_DATA_TIMESTAMP}	 			= $timestampString;
+	
+		my %response = LoxBerry::IO::mshttp_send($MINISERVER, %data_to_send);
+		if (! $response{$VI_FLOW_CURRENT}) {
+		    print STDERR "Error sending ".$VI_FLOW_CURRENT."<br>";
+		    LOGWARN "Error sending ".$VI_FLOW_CURRENT;
+		}
+		if (! $response{$VI_FLOW_CURRENT_PERCENT}) {
+		    print STDERR "Error sending ".$VI_FLOW_CURRENT_PERCENT."<br>";
+			LOGWARN	"Error sending ".$VI_FLOW_CURRENT_PERCENT;
+		}
+		if (! $response{$VI_FLOW_TODAY}) {
+		    print STDERR "Error sending ".$VI_FLOW_TODAY."<br";
+		    LOGWARN "Error sending ".$VI_FLOW_TODAY;
+		}
+		if (! $response{$VI_FLOW_MONTH}) {
+		    print STDERR "Error sending ".$VI_FLOW_MONTH."<br>";
+		    LOGWARN "Error sending ".$VI_FLOW_MONTH;
+		}
+		if (! $response{$VI_FLOW_YEAR}) {
+		    print STDERR "Error sending ".$VI_FLOW_YEAR."<br>";
+		    LOGWARN "Error sending ".$VI_FLOW_YEAR;
+		}
+		if (! $response{$VI_REGENERANT_REFILL_DAYS}) {
+		    print STDERR "Error sending ".$VI_REGENERANT_REFILL_DAYS."<br>";
+		    LOGWARN "Error sending ".$VI_REGENERANT_REFILL_DAYS;
+		}
+		if (! $response{$VI_REGENERANT_REFILL_REMAINING}) {
+		    print STDERR "Error sending ".$VI_REGENERANT_REFILL_REMAINING."<br>";
+		    LOGWARN "Error sending ".$VI_REGENERANT_REFILL_REMAINING;
+		}
+		if (! $response{$VI_DATA_TIMESTAMP}) {
+		    print STDERR "Error sending ".$VI_DATA_TIMESTAMP."<br>";
+		    LOGWARN "Error sending ".$VI_DATA_TIMESTAMP;
+		}
+		
+		LOGDEB "Finished sending values to Miniserver";
+		
+		if ($TEST_MODE) {
+			while ( ($k,$v) = each %data_to_send ) {
+	    		print "- $k => $v\n"."<br>";
+			}	
+			print "Finished sending values to Miniserver<br>";
+		}
+	} else {
+		LOGDEB "Sending values to Miniserver using HTTP is disabled or using fetch/trigger mode.";
+		if ($TEST_MODE) {
+			print "Sending values to Miniserver using HTTP is disabled.<br>";
+		}
+	}	
 }
-
-####################################################################################
-# (3) Send values to Miniserver
-###################################################################################
-
-if ($HTTP_SEND_ENABLE && !$FETCH_MODE && !$TRIGGER_MODE) {
-	LOGDEB "Start sending values to Miniserver";
-	if ($TEST_MODE) {
-		print "Start sending values to Miniserver<br>";
-	}
-	
-	$VI_FLOW_CURRENT 				= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT");
-	$VI_FLOW_CURRENT_PERCENT 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT_PERCENT");
-	$VI_FLOW_TODAY			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_TODAY");
-	$VI_FLOW_MONTH			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_MONTH");
-	$VI_FLOW_YEAR			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_YEAR");
-	$VI_REGENERANT_REFILL_DAYS 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REFILL_DAYS");
-	$VI_REGENERANT_REFILL_REMAINING = $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REMAINING");
-	$VI_DATA_TIMESTAMP				= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_DATA_TIMESTAMP");
-	
-	# Set this variable directly before the function call to override the cache and exceptionally submit ALL values.
-	# After every function call, the function resets the value to 0.
-	### $LoxBerry::IO::mem_sendall = 1;
-	
-	my %data_to_send;
-	$data_to_send{$VI_FLOW_CURRENT} 				= $decoded_json->{aktuellerDurchfluss};
-	$data_to_send{$VI_FLOW_CURRENT_PERCENT} 		= $decoded_json->{aktuellerDurchflussProzent};
-	$data_to_send{$VI_FLOW_TODAY} 					= $decoded_json->{durchflussHeute};
-	$data_to_send{$VI_FLOW_MONTH} 					= $decoded_json->{durchflussMonat};
-	$data_to_send{$VI_FLOW_YEAR} 					= ($decoded_json->{durchflussJahr} / 10);
-	$data_to_send{$VI_REGENERANT_REFILL_DAYS} 		= $decoded_json->{RegeneriemittelNachfuellenIn};
-	$data_to_send{$VI_REGENERANT_REFILL_REMAINING} 	= $decoded_json->{RegeneriemittelVerbleibend};
-	$data_to_send{$VI_DATA_TIMESTAMP}	 			= $timestamp;
-
-	my %response = LoxBerry::IO::mshttp_send($MINISERVER, %data_to_send);
-	if (! $response{$VI_FLOW_CURRENT}) {
-	    print STDERR "Error sending ".$VI_FLOW_CURRENT."<br>";
-	    LOGWARN "Error sending ".$VI_FLOW_CURRENT;
-	}
-	if (! $response{$VI_FLOW_CURRENT_PERCENT}) {
-	    print STDERR "Error sending ".$VI_FLOW_CURRENT_PERCENT."<br>";
-		LOGWARN	"Error sending ".$VI_FLOW_CURRENT_PERCENT;
-	}
-	if (! $response{$VI_FLOW_TODAY}) {
-	    print STDERR "Error sending ".$VI_FLOW_TODAY."<br";
-	    LOGWARN "Error sending ".$VI_FLOW_TODAY;
-	}
-	if (! $response{$VI_FLOW_MONTH}) {
-	    print STDERR "Error sending ".$VI_FLOW_MONTH."<br>";
-	    LOGWARN "Error sending ".$VI_FLOW_MONTH;
-	}
-	if (! $response{$VI_FLOW_YEAR}) {
-	    print STDERR "Error sending ".$VI_FLOW_YEAR."<br>";
-	    LOGWARN "Error sending ".$VI_FLOW_YEAR;
-	}
-	if (! $response{$VI_REGENERANT_REFILL_DAYS}) {
-	    print STDERR "Error sending ".$VI_REGENERANT_REFILL_DAYS."<br>";
-	    LOGWARN "Error sending ".$VI_REGENERANT_REFILL_DAYS;
-	}
-	if (! $response{$VI_REGENERANT_REFILL_REMAINING}) {
-	    print STDERR "Error sending ".$VI_REGENERANT_REFILL_REMAINING."<br>";
-	    LOGWARN "Error sending ".$VI_REGENERANT_REFILL_REMAINING;
-	}
-	if (! $response{$VI_DATA_TIMESTAMP}) {
-	    print STDERR "Error sending ".$VI_DATA_TIMESTAMP."<br>";
-	    LOGWARN "Error sending ".$VI_DATA_TIMESTAMP;
-	}
-	
-	LOGDEB "Finished sending values to Miniserver";
-	
-	if ($TEST_MODE) {
-		while ( ($k,$v) = each %data_to_send ) {
-    		print "- $k => $v\n"."<br>";
-		}	
-		print "Finished sending values to Miniserver<br>";
-	}
-} else {
-	LOGDEB "Sending values to Miniserver using HTTP is disabled or using fetch/trigger mode.";
-	if ($TEST_MODE) {
-		print "Sending values to Miniserver using HTTP is disabled.<br>";
-	}
-}
-  
 LOGEND "Operation finished sucessfully.";
 
