@@ -47,16 +47,37 @@ my $log = LoxBerry::Log->new (
 LOGSTART "BWT Aqua start";
 
 ####################################################################################
-# (2) Read config
+# (2a) Init config
 ###################################################################################
 my $pcfgfile = "$lbpconfigdir/pluginconfig.cfg";
 my $pcfg;
 if (! -e $pcfgfile) {
 	$pcfg = new Config::Simple(syntax=>'ini');
-	$pcfg->param("MAIN.CONFIG_VERSION", "1");
+	$pcfg->param("MAIN.CONFIG_VERSION", "2");
 	$pcfg->write($pcfgfile);
 }
 $pcfg = new Config::Simple($pcfgfile);
+
+####################################################################################
+# (2a) Update old config versions  (v1 -> v2)
+###################################################################################
+if ($pcfg->param("MAIN.CONFIG_VERSION") eq "1") {
+	LOGDEB "Updating plugin config from version 1 to 2";
+	print "Updating plugin config from version 1 to 2<br>";
+	
+	$pcfg->param("MAIN.CONFIG_VERSION", "2");
+	# add new parameter values
+	$pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_1_REMAINING_CAPACITY", "bwt-aqua-column1-remaining-capacity");
+	$pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_2_REMAINING_CAPACITY", "bwt-aqua-column2-remaining-capacity");
+	$pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_1_STATE", "bwt-aqua-column1-state");
+	$pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_2_STATE", "bwt-aqua-column2-state");
+	$pcfg->param("HTTP_SEND.VIRTUAL_INPUT_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY", "bwt-aqua-sole-counter-last-extracted-quantity");
+	$pcfg->write($pcfgfile);
+}
+
+####################################################################################
+# (2c) Read config
+###################################################################################
 
 $HTTP_SEND_ENABLE = $pcfg->param("MAIN.HTTP_SEND_ENABLE");
 $HTTP_SEND_INTERVAL = $pcfg->param("MAIN.HTTP_SEND_INTERVAL");
@@ -196,17 +217,40 @@ if ($TRIGGER_MODE) {
 		exit 0;
 	}
 	
+	
+	$url2 = 'https://'.$BWT_IP.'/info/updateDetails2';
+	$req2 = HTTP::Request->new('GET', $url2);
+	$response2 = $ua->request($req2);
+	if ($response2->code == 200) {
+		LOGDEB "Read detail data OK";
+		if ($TEST_MODE) {
+			printf "Read detail data OK"."<br>";
+		}
+	} else {
+		LOGDEB "Read detail data failed. Error Code: ".$response2->code.", Message: ".$response2->message;
+		if ($TEST_MODE) {
+			printf "Read detail data failed. Error Code: ".$response2->code.", Message: ".$response2->message."<br>";
+			$Data::Dumper::Pad = '<br>';
+			printf "<p style='color:red;'>";
+			printf Dumper $response2;
+			printf "</p>";
+		}
+		## exit 0;
+	}
+	
 	if ($TEST_MODE) {
 		print "<hr>";
 	}
 	
 	my $decoded_json = decode_json( $response->content );
+	my $decoded_json2 = decode_json( $response2->content );
 	my $timestampString = strftime("%d.%m.%Y %H:%M:%S", localtime(time));
 	my $timestamp = epoch2lox();	
  
 	if ($TEST_MODE) {
-		print "Values:"."<br>";
+		print "Raw values:"."<br>";
 	}
+	## actualizeData values
 	print "flowCurrent=".$decoded_json->{aktuellerDurchfluss}."<br>";
 	print "flowCurrentPercent=".$decoded_json->{aktuellerDurchflussProzent}."<br>";
 	print "flowToday=".$decoded_json->{durchflussHeute}."<br>";
@@ -214,7 +258,20 @@ if ($TRIGGER_MODE) {
 	print "flowYear=".($decoded_json->{durchflussJahr} / 10)."<br>";
 	print "regenerantRefillDays=".$decoded_json->{RegeneriemittelNachfuellenIn}."<br>";
 	print "regenerantRemainingDays=".$decoded_json->{RegeneriemittelVerbleibend}."<br>";
-	print "timestamp=".$timestamp."<br>";
+
+	## updateDetails values	
+	print "durchfluss=".$decoded_json2->{durchfluss}." <i>Liter/h</i><br>";
+	print "restkap1=".$decoded_json2->{restkap1}." <i>(Restkapazität Säule 1)</i><br>";
+	print "restkap2=".$decoded_json2->{restkap2}." <i>(Restkapazität Säule 2)</i><br>";
+	print "step1=".$decoded_json2->{step1}." <i>(Regenerationsschritt Säule 1)</i><br>";
+	print "step2=".$decoded_json2->{step2}." <i>(Regenerationsschritt Säule 2)</i><br>";
+	print "restlz1=".$decoded_json2->{restlz1}." <i>(Restlaufzeit Regeneration Säule 1)</i><br>";
+	print "restlz1=".$decoded_json2->{restlz2}." <i>(Restlaufzeit Regeneration Säule 2)</i><br>";
+	print "saugrate=".$decoded_json2->{saugrate}." <i>(Solezähler - Aktuelle Saugrate)</i><br>";
+	print "menge=".$decoded_json2->{menge}." <i>(Solezähler - Zuletzt abgesaugte Menge)</i><br>";
+
+	## timestamp(s)		
+	print "timestamp=".$timestamp." <i>(Sekunden seit 1.1.2009 - Loxone Epoch Time)</i><br>";
 	print "timestampString=".$timestampString;
 	
 	if ($TEST_MODE) {
@@ -230,29 +287,41 @@ if ($TRIGGER_MODE) {
 			print "Start sending values to Miniserver<br>";
 		}
 		
-		$VI_FLOW_CURRENT 				= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT");
-		$VI_FLOW_CURRENT_PERCENT 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT_PERCENT");
-		$VI_FLOW_TODAY			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_TODAY");
-		$VI_FLOW_MONTH			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_MONTH");
-		$VI_FLOW_YEAR			 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_YEAR");
-		$VI_REGENERANT_REFILL_DAYS 		= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REFILL_DAYS");
-		$VI_REGENERANT_REFILL_REMAINING = $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REMAINING");
-		$VI_DATA_TIMESTAMP				= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_DATA_TIMESTAMP");
+		$VI_FLOW_CURRENT 							= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT");
+		$VI_FLOW_CURRENT_PERCENT 					= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_CURRENT_PERCENT");
+		$VI_FLOW_TODAY			 					= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_TODAY");
+		$VI_FLOW_MONTH			 					= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_MONTH");
+		$VI_FLOW_YEAR			 					= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_FLOW_YEAR");
+		$VI_REGENERANT_REFILL_DAYS 					= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REFILL_DAYS");
+		$VI_REGENERANT_REFILL_REMAINING 			= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_REGENERANT_REMAINING");
+		$VI_DATA_TIMESTAMP							= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_DATA_TIMESTAMP");
+		$VI_COLUMN_1_REMAINING_CAPACITY 			= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_1_REMAINING_CAPACITY");
+		$VI_COLUMN_2_REMAINING_CAPACITY 			= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_2_REMAINING_CAPACITY");
+		$VI_COLUMN_1_STATE							= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_1_STATE");
+		$VI_COLUMN_2_STATE 							= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_COLUMN_2_STATE");
+		$VI_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY	= $pcfg->param("HTTP_SEND.VIRTUAL_INPUT_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY");
 		
 		# Set this variable directly before the function call to override the cache and exceptionally submit ALL values.
 		# After every function call, the function resets the value to 0.
 		### $LoxBerry::IO::mem_sendall = 1;
 		
 		my %data_to_send;
-		$data_to_send{$VI_FLOW_CURRENT} 				= $decoded_json->{aktuellerDurchfluss};
-		$data_to_send{$VI_FLOW_CURRENT_PERCENT} 		= $decoded_json->{aktuellerDurchflussProzent};
-		$data_to_send{$VI_FLOW_TODAY} 					= $decoded_json->{durchflussHeute};
-		$data_to_send{$VI_FLOW_MONTH} 					= $decoded_json->{durchflussMonat};
-		$data_to_send{$VI_FLOW_YEAR} 					= ($decoded_json->{durchflussJahr} / 10);
-		$data_to_send{$VI_REGENERANT_REFILL_DAYS} 		= $decoded_json->{RegeneriemittelNachfuellenIn};
-		$data_to_send{$VI_REGENERANT_REFILL_REMAINING} 	= $decoded_json->{RegeneriemittelVerbleibend};
-		$data_to_send{$VI_DATA_TIMESTAMP}	 			= $timestampString;
+		$data_to_send{$VI_FLOW_CURRENT} 						= $decoded_json->{aktuellerDurchfluss};
+		$data_to_send{$VI_FLOW_CURRENT_PERCENT} 				= $decoded_json->{aktuellerDurchflussProzent};
+		$data_to_send{$VI_FLOW_TODAY} 							= $decoded_json->{durchflussHeute};
+		$data_to_send{$VI_FLOW_MONTH} 							= $decoded_json->{durchflussMonat};
+		$data_to_send{$VI_FLOW_YEAR} 							= ($decoded_json->{durchflussJahr} / 10);
+		$data_to_send{$VI_REGENERANT_REFILL_DAYS} 				= $decoded_json->{RegeneriemittelNachfuellenIn};
+		$data_to_send{$VI_REGENERANT_REFILL_REMAINING} 			= $decoded_json->{RegeneriemittelVerbleibend};
+		
+		$data_to_send{$VI_COLUMN_1_REMAINING_CAPACITY} 			= $decoded_json2->{restkap1};
+		$data_to_send{$VI_COLUMN_2_REMAINING_CAPACITY} 			= $decoded_json2->{restkap2};
+		$data_to_send{$VI_COLUMN_1_STATE} 						= $decoded_json2->{step1};
+		$data_to_send{$VI_COLUMN_2_STATE} 						= $decoded_json2->{step2};
+		$data_to_send{$VI_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY} = $decoded_json2->{menge};
 	
+		$data_to_send{$VI_DATA_TIMESTAMP}	 					= $timestampString;
+		
 		my %response = LoxBerry::IO::mshttp_send($MINISERVER, %data_to_send);
 		if (! $response{$VI_FLOW_CURRENT}) {
 		    print STDERR "Error sending ".$VI_FLOW_CURRENT."<br>";
@@ -281,6 +350,26 @@ if ($TRIGGER_MODE) {
 		if (! $response{$VI_REGENERANT_REFILL_REMAINING}) {
 		    print STDERR "Error sending ".$VI_REGENERANT_REFILL_REMAINING."<br>";
 		    LOGWARN "Error sending ".$VI_REGENERANT_REFILL_REMAINING;
+		}
+		if (! $response{$VI_COLUMN_1_REMAINING_CAPACITY}) {
+		    print STDERR "Error sending ".$VI_COLUMN_1_REMAINING_CAPACITY."<br>";
+		    LOGWARN "Error sending ".$VI_COLUMN_1_REMAINING_CAPACITY;
+		}
+		if (! $response{$VI_COLUMN_2_REMAINING_CAPACITY}) {
+		    print STDERR "Error sending ".$VI_COLUMN_2_REMAINING_CAPACITY."<br>";
+		    LOGWARN "Error sending ".$VI_COLUMN_2_REMAINING_CAPACITY;
+		}
+		if (! $response{$VI_COLUMN_1_STATE}) {
+		    print STDERR "Error sending ".$VI_COLUMN_1_STATE."<br>";
+		    LOGWARN "Error sending ".$VI_COLUMN_1_STATE;
+		}
+		if (! $response{$VI_COLUMN_2_STATE}) {
+		    print STDERR "Error sending ".$VI_COLUMN_2_STATE."<br>";
+		    LOGWARN "Error sending ".$VI_COLUMN_2_STATE;
+		}
+		if (! $response{$VI_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY}) {
+		    print STDERR "Error sending ".$VI_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY."<br>";
+		    LOGWARN "Error sending ".$VI_SOLE_COUNTER_LAST_EXTRACTED_QUANTITY;
 		}
 		if (! $response{$VI_DATA_TIMESTAMP}) {
 		    print STDERR "Error sending ".$VI_DATA_TIMESTAMP."<br>";
