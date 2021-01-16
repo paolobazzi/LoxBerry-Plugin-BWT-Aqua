@@ -64,11 +64,12 @@ $BWT_IP = $pcfg->param("DEVICE.IP");
 $BWT_CODE = $pcfg->param("DEVICE.CODE");
 $MINISERVER = $pcfg->param('MAIN.MINISERVER');
 
-# Check testing mode
+# Check mode
 my $cgi = CGI->new;
 $cgi->import_names('R');
 $TEST_MODE = $R::action eq "test";
 $FETCH_MODE = $R::action eq "fetch";
+$TRIGGER_MODE = $R::action eq "trigger";
 
 LOGDEB "BWT IP: ".$BWT_IP;
 LOGDEB "BWT CODE: ".$BWT_CODE;
@@ -120,7 +121,7 @@ if ($response->code == 200) {
 		printf "Login OK"."<br><br>";
 	}
 } else {
-	LOGDEB "Login failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
+	LOGDEB "Login failed. Error Code: ".$response->code.", Message: ".$response->message;
 	if ($TEST_MODE) {
 		printf "Login failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
 		$Data::Dumper::Pad = '<br>';
@@ -131,66 +132,91 @@ if ($response->code == 200) {
 	exit 0;
 }
 
-##### Read data
-$url = 'https://'.$BWT_IP.'/home/actualizedata';
-$req = HTTP::Request->new('GET', $url);
-$ua = LWP::UserAgent->new();
-$ua->ssl_opts(
-    SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE, 
-    verify_hostname => 0
-);
-$ua->cookie_jar($cookie_jar);
-
-if ($TEST_MODE) {
-	print "Reading data from BWT Aqua:<br>";
-}
-
-$response = $ua->request($req);
-if ($response->code == 200) {
-	LOGDEB "Read data OK";
-	if ($TEST_MODE) {
-		printf "Read data OK"."<br>";
-	}
+if ($TRIGGER_MODE) {
+	##### Trigger action
+	$ID = $R::id;			# BWT Action ID
+	$VALUE = $R::value; 	# BWT Action value
+	
+	my $url = 'http://'.$BWT_IP.'/keyboard/saveValue';
+	my $header = ['Content-Type' => 'application/x-www-form-urlencoded'];
+	my $req = HTTP::Request->new('POST', $url, $header, 'ID='.$ID.'&Value='.$VALUE);
+	$ua = LWP::UserAgent->new();
+	push @{ $ua->requests_redirectable }, 'POST';
+	$ua->ssl_opts(
+	    SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE, 
+	    verify_hostname => 0
+	);
+	$ua->cookie_jar($cookie_jar);
+	$response = $ua->request($req);
+	if ($response->code == 200) {
+		LOGDEB "Trigger action id=".$ID.", value=".$VALUE." successful, message: ".$response->message;
+		print "Trigger action id=".$ID.", value=".$VALUE." successful, message: ".$response->message."<br>";
+	} else {
+		LOGDEB "Trigger action id=".$ID.", value=".$VALUE." failed. Error Code: ".$response->code.", Message: ".$response->message;
+		print "Trigger action id=".$ID.", value=".$VALUE." failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
+	}	
 } else {
-	LOGDEB "Read data failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
+	##### Read data
+	$url = 'https://'.$BWT_IP.'/home/actualizedata';
+	$req = HTTP::Request->new('GET', $url);
+	$ua = LWP::UserAgent->new();
+	$ua->ssl_opts(
+	    SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_NONE, 
+	    verify_hostname => 0
+	);
+	$ua->cookie_jar($cookie_jar);
+	
 	if ($TEST_MODE) {
-		printf "Read data failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
-		$Data::Dumper::Pad = '<br>';
-		printf "<p style='color:red;'>";
-		printf Dumper $response;
-		printf "</p>";
+		print "Reading data from BWT Aqua:<br>";
 	}
-	exit 0;
-}
-
-if ($TEST_MODE) {
-	print "<hr>";
-}
-
-my $decoded_json = decode_json( $response->content );
-my $timestamp = strftime("%d.%m.%Y %H:%M:%S", localtime(time));
-
-if ($TEST_MODE) {
-	print "Values:"."<br>";
-}
-print "flowCurrent=".$decoded_json->{aktuellerDurchfluss}."<br>";
-print "flowCurrentPercent=".$decoded_json->{aktuellerDurchflussProzent}."<br>";
-print "flowToday=".$decoded_json->{durchflussHeute}."<br>";
-print "flowMonth=".$decoded_json->{durchflussMonat}."<br>";
-print "flowYear=".($decoded_json->{durchflussJahr} / 10)."<br>";
-print "regenerantRefillDays=".$decoded_json->{RegeneriemittelNachfuellenIn}."<br>";
-print "regenerantRemainingDays=".$decoded_json->{RegeneriemittelVerbleibend}."<br>";
-print "Timestamp=".$timestamp;
-
-if ($TEST_MODE) {
-	print "<hr>";
+	
+	$response = $ua->request($req);
+	if ($response->code == 200) {
+		LOGDEB "Read data OK";
+		if ($TEST_MODE) {
+			printf "Read data OK"."<br>";
+		}
+	} else {
+		LOGDEB "Read data failed. Error Code: ".$response->code.", Message: ".$response->message;
+		if ($TEST_MODE) {
+			printf "Read data failed. Error Code: ".$response->code.", Message: ".$response->message."<br>";
+			$Data::Dumper::Pad = '<br>';
+			printf "<p style='color:red;'>";
+			printf Dumper $response;
+			printf "</p>";
+		}
+		exit 0;
+	}
+	
+	if ($TEST_MODE) {
+		print "<hr>";
+	}
+	
+	my $decoded_json = decode_json( $response->content );
+	my $timestamp = strftime("%d.%m.%Y %H:%M:%S", localtime(time));
+	
+	if ($TEST_MODE) {
+		print "Values:"."<br>";
+	}
+	print "flowCurrent=".$decoded_json->{aktuellerDurchfluss}."<br>";
+	print "flowCurrentPercent=".$decoded_json->{aktuellerDurchflussProzent}."<br>";
+	print "flowToday=".$decoded_json->{durchflussHeute}."<br>";
+	print "flowMonth=".$decoded_json->{durchflussMonat}."<br>";
+	print "flowYear=".($decoded_json->{durchflussJahr} / 10)."<br>";
+	print "regenerantRefillDays=".$decoded_json->{RegeneriemittelNachfuellenIn}."<br>";
+	print "regenerantRemainingDays=".$decoded_json->{RegeneriemittelVerbleibend}."<br>";
+	print "Timestamp=".$timestamp;
+	
+	if ($TEST_MODE) {
+		print "<hr>";
+	}
 }
 
 ####################################################################################
 # (3) Send values to Miniserver
 ###################################################################################
 
-if ($HTTP_SEND_ENABLE && !$FETCH_MODE) {
+if ($HTTP_SEND_ENABLE && !$FETCH_MODE && !$TRIGGER_MODE) {
 	LOGDEB "Start sending values to Miniserver";
 	if ($TEST_MODE) {
 		print "Start sending values to Miniserver<br>";
@@ -262,7 +288,7 @@ if ($HTTP_SEND_ENABLE && !$FETCH_MODE) {
 		print "Finished sending values to Miniserver<br>";
 	}
 } else {
-	LOGDEB "Sending values to Miniserver using HTTP is disabled or using fetch mode.";
+	LOGDEB "Sending values to Miniserver using HTTP is disabled or using fetch/trigger mode.";
 	if ($TEST_MODE) {
 		print "Sending values to Miniserver using HTTP is disabled.<br>";
 	}
