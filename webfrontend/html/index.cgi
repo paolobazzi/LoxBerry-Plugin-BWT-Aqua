@@ -134,7 +134,7 @@ $ua->ssl_opts(
 $ua->cookie_jar($cookie_jar);
 
 if ($TEST_MODE) {
-	print "Login to BWT Aqua:<br>";
+	print "Login to BWT Aqua<br>";
 }
 
 my $response = $ua->request($req);
@@ -142,7 +142,7 @@ my $response = $ua->request($req);
 if ($response->code == 200) {
 	LOGDEB "Login OK";
 	if ($TEST_MODE) {
-		printf "Login OK"."<br><br>";
+		printf "Login OK"."<br>";
 	}
 } else {
 	LOGDEB "Login failed. Error Code: ".$response->code.", Message: ".$response->message;
@@ -186,6 +186,8 @@ if ($TRIGGER_MODE) {
 	####################################################################################
 	# (5b) Read data from BWT
 	####################################################################################
+
+	# Request 1: /home/actualizedata
 	$url = 'https://'.$BWT_IP.'/home/actualizedata';
 	$req = HTTP::Request->new('GET', $url);
 	$ua = LWP::UserAgent->new();
@@ -196,7 +198,7 @@ if ($TRIGGER_MODE) {
 	$ua->cookie_jar($cookie_jar);
 	
 	if ($TEST_MODE) {
-		print "Reading data from BWT Aqua:<br>";
+		print "Reading data from BWT Aqua regenerant<br>";
 	}
 	
 	$response = $ua->request($req);
@@ -217,7 +219,7 @@ if ($TRIGGER_MODE) {
 		exit 0;
 	}
 	
-	
+	# Request 2: /info/updateDetails2
 	$url2 = 'https://'.$BWT_IP.'/info/updateDetails2';
 	$req2 = HTTP::Request->new('GET', $url2);
 	$response2 = $ua->request($req2);
@@ -237,6 +239,10 @@ if ($TRIGGER_MODE) {
 		}
 		## exit 0;
 	}
+	
+	## TODO gather further informations 
+	## https://192.168.1.54/functions/holidaymode   get status
+	## https://192.168.1.54/info/getblendblock
 	
 	if ($TEST_MODE) {
 		print "<hr>";
@@ -260,18 +266,19 @@ if ($TRIGGER_MODE) {
 	print "regenerantRemainingDays=".$decoded_json->{RegeneriemittelVerbleibend}."<br>";
 
 	## updateDetails values	
-	print "durchfluss=".$decoded_json2->{durchfluss}." <i>Liter/h</i><br>";
-	print "restkap1=".$decoded_json2->{restkap1}." <i>(Restkapazität Säule 1)</i><br>";
-	print "restkap2=".$decoded_json2->{restkap2}." <i>(Restkapazität Säule 2)</i><br>";
-	print "step1=".$decoded_json2->{step1}." <i>(Regenerationsschritt Säule 1)</i><br>";
-	print "step2=".$decoded_json2->{step2}." <i>(Regenerationsschritt Säule 2)</i><br>";
-	print "restlz1=".$decoded_json2->{restlz1}." <i>(Restlaufzeit Regeneration Säule 1)</i><br>";
-	print "restlz1=".$decoded_json2->{restlz2}." <i>(Restlaufzeit Regeneration Säule 2)</i><br>";
-	print "saugrate=".$decoded_json2->{saugrate}." <i>(Solezähler - Aktuelle Saugrate)</i><br>";
-	print "menge=".$decoded_json2->{menge}." <i>(Solezähler - Zuletzt abgesaugte Menge)</i><br>";
+	#print "durchfluss=".$decoded_json2->{durchfluss}." <i>Liter/h</i><br>";
+	print "remainingCapacityColumn1=".$decoded_json2->{restkap1}."<br>";
+	print "remainingCapacityColumn2=".$decoded_json2->{restkap2}."<br>";
+	print "stateColumn1=".$decoded_json2->{step1}."<br>";
+	print "stateColumn2=".$decoded_json2->{step2}."<br>";
+	#print "restlz1=".$decoded_json2->{restlz1}."<br>";
+	#print "restlz1=".$decoded_json2->{restlz2}."<br>";
+	#print "saugrate=".$decoded_json2->{saugrate}."<br>";
+	print "soleCounterLastExtractedQuantity=".$decoded_json2->{menge}."<br>";
 
 	## timestamp(s)		
-	print "timestamp=".$timestamp." <i>(Sekunden seit 1.1.2009 - Loxone Epoch Time)</i><br>";
+	#print "timestamp=".$timestamp." <i>(Sekunden seit 1.1.2009 - Loxone Epoch Time)</i><br>";
+	print "timestamp=".$timestamp."<br>";
 	print "timestampString=".$timestampString;
 	
 	if ($TEST_MODE) {
@@ -389,7 +396,7 @@ if ($TRIGGER_MODE) {
 		if ($TEST_MODE) {
 			print "Sending values to Miniserver using HTTP is disabled.<br>";
 		}
-	}	
+	}
 }
 LOGEND "Operation finished sucessfully.";
 
