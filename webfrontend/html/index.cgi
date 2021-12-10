@@ -32,6 +32,9 @@ use HTTP::Cookies;
 use IO::Socket::SSL;
 use JSON qw( decode_json );
 use POSIX qw( strftime );
+#use HTML::Parser::Simple;
+#use HTML::Parser;
+use HTML::TreeBuilder; 
 
 print "Content-type: text/html\n\n";
 
@@ -243,6 +246,62 @@ if ($TRIGGER_MODE) {
 	## TODO gather further informations 
 	## https://192.168.1.54/functions/holidaymode   get status
 	## https://192.168.1.54/info/getblendblock
+	
+
+	# Request 2: /info/updateDetails2
+#	$url3 = 'https://'.$BWT_IP.'/info/operationhistory';
+#	$req3 = HTTP::Request->new('GET', $url3);
+#	$response3 = $ua->request($req3);
+#	if ($response3->code == 200) {
+#		LOGDEB "Read detail data II OK";
+#		if ($TEST_MODE) {
+#			printf "Read detail data II OK"."<br>";
+#		}
+#	}	
+#	
+#	#my $p = new HTML::Parser;
+#    #$p->parse_file($response3->content);
+#	
+#	printf "<hr><hr>";
+#	printf $response3->content;
+#	printf "<hr><hr>";
+#	
+#	
+#	
+#	my $document = HTML::TreeBuilder->new->parse($response3->content)->eof;
+#
+#	my $div = $document->look_down('class', 'copy fullWidth');
+#	foreach my $node ($div->content_list) {
+#		if (ref $node) {
+#			   #print $node->tag (), "\n";
+#			   print $node->as_text (), "<br>";
+#			   #my $title = $node->look_down('class', 'titleColumn');
+#			   
+#		} else {
+#			#  print "???node=".$node, "\n";
+#		}
+#	}
+		
+		
+		
+		#print "CH=".$ch;
+		#print "text=".$ch->as_text;
+#		 if ($ch) {
+#			  my $h2 = $ch->look_down('class', 'titleColumn');
+#			  if ($h2) {
+#			  	print "text=".$h2->as_text;
+#			  }
+#		 }
+#	}
+
+#	for my $div ($document->find('div')) {
+#	}
+
+#	for my $a ($document->find('a')) {
+#	    print $a->attr('href'), "\n" if $a->attr('href');
+#	}
+	
+	printf "PARSED!"."<br>";
 	
 	if ($TEST_MODE) {
 		print "<hr>";
