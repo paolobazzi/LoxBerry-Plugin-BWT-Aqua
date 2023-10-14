@@ -2,15 +2,38 @@
 
 <form method="post" data-ajax="false" name="main_form" id="main_form" action="index.cgi">
 	<input type="hidden" name="save" value="save">
-	<div class="ui-field-contain">
+	<p></p>
+	
+	<!--  access type configuration -->
+	<div class="ui-field-contain" data-role="navbar"> 
+		<input  name="Type" id="Type" type="hidden" class="textfield" value="<TMPL_VAR NAME=TYPE>" data-validation-error-msg="* Please enter device type">
+		<ul>
+			<li><a id="accessTypeLocal" href="#" onclick="updateAccessType('local');" class="ui-btn-active">Lokaler Zugriff</a></li>
+			<li><a id="accessTypeBwtCloud" href="#" onclick="updateAccessType('bwt-cloud');" >BWT Cloud Zugriff</a></li>
+		</ul>
+	</div>
+	
+	<!--  local access configuration -->
+	<div class="ui-field-contain" id="deviceip">
 		<label for="DeviceIp" id="labelip"><TMPL_VAR BASIC.BWT_AQUA_IP></label>
 		<input  name="DeviceIp" type="text" class="textfield" value="<TMPL_VAR NAME=IP>" data-validation-error-msg="* Please enter IP-Adress">
 	</div>
-	<div class="ui-field-contain">
-		<label for="DeviceCode" id="labelip"><TMPL_VAR BASIC.BWT_AQUA_CODE></label>
+		<div class="ui-field-contain" id="devicecode">
+		<label for="DeviceCode" id="labeldevicecode"><TMPL_VAR BASIC.BWT_AQUA_CODE></label>
 		<input  name="DeviceCode" type="password" class="textfield" value="<TMPL_VAR NAME=CODE>" data-validation-error-msg="* Please enter code">
 	</div>
-	<div class="ui-field-contain">
+	
+	<!--  bwt cloud access configuration -->
+	<div class="ui-field-contain" id="productcode">
+		<label for="ProductCode" id="labelproductcode"><TMPL_VAR BASIC.BWT_AQUA_PRODUCT_CODE></label>
+		<input  name="ProductCode" type="text" class="textfield" value="<TMPL_VAR NAME=PRODUCT_CODE>" data-validation-error-msg="* Please enter product code">
+	</div>
+	<div class="ui-field-contain" id="apikey">
+		<label for="ApiKey" id="labelapikey"><TMPL_VAR BASIC.BWT_AQUA_API_KEY></label>
+		<input  name="ApiKey" type="password" class="textfield" value="<TMPL_VAR NAME=API_KEY>" data-validation-error-msg="* Please enter API key">
+	</div>
+ 
+	<div class="ui-field-contain" id="http-send">
 		<label for="HTTP_Send" id="labelHttpSend"><TMPL_VAR BASIC.BWT_AQUA_HTTPSEND></label>
 		<fieldset>
 			<select  name="HTTP_Send" data-role="flipswitch">
@@ -20,7 +43,7 @@
 		<span>&nbsp;<TMPL_VAR BASIC.BWT_AQUA_HTTPSEND_HINT></span>
 		</fieldset>
 	</div>
-	<div class="ui-field-contain">
+	<div class="ui-field-contain" id="http-provide">
 		<label for="HTTP_Provide" id="labelHttpProvide"><TMPL_VAR BASIC.BWT_AQUA_HTTPPROVIDE></label>
 		<fieldset>
 			<select  name="HTTP_Provide" data-role="flipswitch">
@@ -45,35 +68,94 @@
 	</p>
 	
 	<hr>
-	<p><b>Actions</b></p>
-	<table>
-		<tr>
-			<td>Regeneriermittelbef&uuml;llung</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=489&value=1</span></td>
-		</tr>
-		<tr>
-			<td>Urlaubsmodus einschalten</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=484&value=1</span></td>
-		</tr>
-		<tr>
-			<td>Urlaubsmodus ausschalten</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=484&value=0</span></td>
-		</tr>
-		<tr>
-			<td>Extra Regeneration ausl&ouml;sen</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=482&value=1</span></td>
-		</tr>
-		<tr>
-			<td>Extra Sp&uuml;lung ausl&ouml;sen</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=483&value=1</span></td>
-		</tr>
-		<tr>
-			<td>Ausserbetriebsetzen</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=507&value=1</span></td>
-		</tr>
-		<tr>
-			<td>Wiederinbetriebnahme</td>
-			<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=507&value=0</span></td>
-		</tr>
-	</table>
+	<div id="actions-local">
+		<p><b>Actions Local</b></p>
+		<table>
+			<tr>
+				<td>Regeneriermittelbef&uuml;llung</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=489&value=1</span></td>
+			</tr>
+			<tr>
+				<td>Urlaubsmodus einschalten</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=484&value=1</span></td>
+			</tr>
+			<tr>
+				<td>Urlaubsmodus ausschalten</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=484&value=0</span></td>
+			</tr>
+			<tr>
+				<td>Extra Regeneration ausl&ouml;sen</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=482&value=1</span></td>
+			</tr>
+			<tr>
+				<td>Extra Sp&uuml;lung ausl&ouml;sen</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=483&value=1</span></td>
+			</tr>
+			<tr>
+				<td>Ausserbetriebsetzen</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=507&value=1</span></td>
+			</tr>
+			<tr>
+				<td>Wiederinbetriebnahme</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=507&value=0</span></td>
+			</tr>
+		</table>
+	</div>
+	<div id="actions-cloud">
+		<p><b>Achtung</b><br>
+		Über die BWT Cloud stehen lediglich die nachfolgenden Aktionen zur Verfügung. <br>
+		Es werden keine Daten aus der Cloud abgerufen und an den Miniserver übermittelt. Testweise können die verfügbaren Daten aus der BWT Cloud mittels "Testen" Button abgerufen werden.<br>
+		Für den Zugriff auf die Nutzungsdaten wird die Nutzung des neuen lokalen BWT APIs empfohlen. Eine Beispielkonfiguration befindet sich im <a href="https://wiki.loxberry.de/plugins/bwt_aqua/start" target="_blank">Loxberry Wiki</a>.		
+		</p>
+		<br>
+		<p><b>Actions BWT Cloud</b></p>
+		<table>
+			<tr>
+				<td>Urlaubsmodus einschalten</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=holidaymode&value=enable</span></td>
+			</tr>
+			<tr>
+				<td>Urlaubsmodus ausschalten</td>
+				<td><span style="font-family: Consolas, monaco, monospace;">/plugins/bwt-aqua/index.cgi?action=trigger&id=holidaymode&value=disable</span></td>
+			</tr>
+		</table>
+	</div>
 </form>
+
+<script>
+
+$(function()
+{
+	console.log("Loaded. Type=" + $('#Type').val());
+	var type = $('#Type').val();
+	if (type === 'local') {
+		$('#accessTypeLocal').trigger('click');
+	} else {
+		$('#accessTypeBwtCloud').trigger('click');
+	}
+});
+
+function updateAccessType(accessType)
+{
+	$('#Type').val(accessType); 
+	if (accessType === 'local') {
+		$('#deviceip').show();
+		$('#devicecode').show();
+		$('#productcode').hide();
+		$('#apikey').hide();
+		$('#http-send').show();
+		$('#http-provide').show();
+		$('#actions-local').show();
+		$('#actions-cloud').hide();
+	} else if (accessType === 'bwt-cloud') {
+		$('#deviceip').hide();
+		$('#devicecode').hide();
+		$('#productcode').show();
+		$('#apikey').show();
+		$('#http-send').hide();
+		$('#http-provide').hide();
+		$('#actions-cloud').show();
+		$('#actions-local').hide();
+	}
+};
+</script>
